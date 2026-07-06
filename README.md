@@ -1,7 +1,11 @@
 # Thermal-Aware AI Inference Pipeline (Jetson Orin)
 
 ## Overview
-This project implements a thermal aware embedded linux SoC with the Jetson Orin Nano. It has three main stages
+This project implements a thermal-aware, concurrent AI inference pipeline designed for the NVIDIA Jetson Orin Nano. Running a sustained 
+workload that must balance camera throughput against thermal limits — this system senses SoC thermal state directly from the Linux kernel and 
+dynamically adjusts pipeline behavior in response. 
+
+It has three main stages
 
 1. **User-space concurrency engine** — a multi-threaded C++ producer/consumer/governor pipeline with a custom ring buffer and drop-based backpressure policy
 2. **Kernel-space thermal bridge** — a custom Linux character device driver that reads real thermal zone data from the kernel and exposes it to user space
