@@ -1,5 +1,9 @@
 # Thermal-Aware AI Inference Pipeline (Jetson Orin)
 
+## Author
+
+-Roman Bonfiglio
+
 ## Overview
 This project implements a thermal-aware, concurrent AI inference pipeline designed for the NVIDIA Jetson Orin Nano. Running a sustained 
 workload that must balance camera throughput against thermal limits — this system senses SoC thermal state directly from the Linux kernel and 
@@ -20,7 +24,7 @@ It has three main stages
 - Governor thread runs a thermal FSM (NORMAL/WARM/HOT/CRITICAL) with hysteresis
 - Fixed-size ring buffer connects them with a drop-on-full backpressure policy
 
-###Diagram
+### Diagram
 -TO DO
 
 ### Key design decisions
@@ -43,6 +47,7 @@ g++ -std=c++17 -pthread src/main.cpp src/RingBuffer.cpp -Iinclude -o thermal_sim
 
 ## Repository Structure
 src/        - source files
+
 include/    - headers
 
 ## Phase 2: Kernel-Space Thermal Bridge (In Progress)
