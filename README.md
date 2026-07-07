@@ -20,6 +20,9 @@ It has three main stages
 - Governor thread runs a thermal FSM (NORMAL/WARM/HOT/CRITICAL) with hysteresis
 - Fixed-size ring buffer connects them with a drop-on-full backpressure policy
 
+###Diagram
+-TO DO
+
 ### Key design decisions
 - **Drop-incoming vs overwrite-oldest**: chose drop-incoming so frame ordering 
   is preserved and backpressure produces an explicit, countable metric 
@@ -34,16 +37,13 @@ It has three main stages
 
 
 ## Build & Run
-\`\`\`bash
 g++ -std=c++17 -pthread src/main.cpp src/RingBuffer.cpp -Iinclude -o thermal_sim
 ./thermal_sim
-\`\`\`
+
 
 ## Repository Structure
-\`\`\`
 src/        - source files
 include/    - headers
-\`\`\`
 
 ## Phase 2: Kernel-Space Thermal Bridge (In Progress)
 
