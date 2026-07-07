@@ -1,0 +1,1 @@
+cmd_/home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/Module.symvers := sed 's/\.ko$$/\.o/' /home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/modules.order | scripts/mod/modpost -m   -o /home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/Module.symvers -e -i Module.symvers   -T -

@@ -1,0 +1,1 @@
+cmd_/home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/orin_thermal.mod := printf '%s\n'   orin_thermal.o | awk '!x[$$0]++ { print("/home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/"$$0) }' > /home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/orin_thermal.mod

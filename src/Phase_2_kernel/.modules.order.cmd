@@ -1,0 +1,1 @@
+cmd_/home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/modules.order := {   echo /home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/orin_thermal.ko; :; } | awk '!x[$$0]++' - > /home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/modules.order
