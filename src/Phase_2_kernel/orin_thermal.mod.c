@@ -28,11 +28,17 @@ MODULE_INFO(retpoline, "Y");
 static const struct modversion_info ____versions[]
 __used __section("__versions") = {
 	{ 0x25f8bfc1, "module_layout" },
+	{ 0x908e5601, "cpu_hwcaps" },
+	{ 0x6cbbfc54, "__arch_copy_to_user" },
+	{ 0x69f38847, "cpu_hwcap_keys" },
+	{ 0x14b89635, "arm64_const_caps_ready" },
+	{ 0x88db9f48, "__check_object_size" },
 	{ 0x92997ed8, "_printk" },
 	{ 0x1fdc7df2, "_mcount" },
+	{ 0x4b0a3f52, "gic_nonsecure_priorities" },
 };
 
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "2F61689067B21F406ECC84B");
+MODULE_INFO(srcversion, "EB3803E0725A3BAA851DE18");
