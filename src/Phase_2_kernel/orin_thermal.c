@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/cdev.h>
+#include "orin_thermal_ioctl.h"
 
 
 #define DRIVER_NAME "JETSON"
@@ -20,12 +21,14 @@ static struct class *jetson_thermal_class;
 static int jetson_thermal_open(struct inode *inode, struct file *filp);
 ssize_t jetson_thermal_read(struct file *filep, char __user *buf, size_t len, loff_t *f_pos);
 static int jetson_thermal_release(struct inode *inodep, struct file *filep);
+static long jetson_thermal_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 static struct file_operations fops = {
     .owner   = THIS_MODULE,
     .open    = jetson_thermal_open,
     .read    = jetson_thermal_read,
     .release = jetson_thermal_release,
+    .unlocked_ioctl = jetson_thermal_ioctl,
 };
 
 static int __init  jetson_thermal_init(void) {
@@ -106,6 +109,34 @@ ssize_t jetson_thermal_read(struct file *filep, char __user *buf, size_t len, lo
 }
 static int jetson_thermal_release(struct inode *inodep, struct file *filep){
     pr_info("%s: Device successfully closed\n", DRIVER_NAME);
+    return 0;
+}
+
+//IOCTL
+static long jetson_thermal_ioctl(struct file *file, unsigned int cmd, unsigned long arg){
+    struct thermal_telemetry data;
+    int write_data = 24;
+    switch(cmd){
+        case JETSON_THERMAL_RESET:
+            pr_info("%s :Driver Reset\n", DRIVER_NAME);
+            break;
+        case JETSON_THERMAL_WRITE:
+            if(copy_from_user(&write_data, (int __user *) arg,sizeof(write_data))){
+                pr_err("%s Data write error\n", DRIVER_NAME);
+                return -EFAULT;
+            }
+            break;
+        case JETSON_THERMAL_READ:
+            data.temperature = 42;
+            data.fsm_state = 0;
+            if(copy_to_user((struct thermal_telemetry __user *) arg, &data, sizeof(data))){
+                pr_err("%s Data read error\n", DRIVER_NAME);
+                return -EFAULT;
+            }
+            break;
+        default:
+            return -ENOTTY;
+    }
     return 0;
 }
 
