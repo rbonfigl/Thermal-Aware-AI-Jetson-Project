@@ -28,8 +28,10 @@ MODULE_INFO(retpoline, "Y");
 static const struct modversion_info ____versions[]
 __used __section("__versions") = {
 	{ 0x25f8bfc1, "module_layout" },
-	{ 0xcd9f81af, "device_destroy" },
+	{ 0x4302d0eb, "free_pages" },
 	{ 0x8cb3f82a, "class_destroy" },
+	{ 0xcd9f81af, "device_destroy" },
+	{ 0xf09b5d9a, "get_zeroed_page" },
 	{ 0x396ecf2f, "device_create" },
 	{ 0x6091b333, "unregister_chrdev_region" },
 	{ 0x277c232f, "cdev_del" },
@@ -45,6 +47,9 @@ __used __section("__versions") = {
 	{ 0x69f38847, "cpu_hwcap_keys" },
 	{ 0x14b89635, "arm64_const_caps_ready" },
 	{ 0x88db9f48, "__check_object_size" },
+	{ 0xe4bbc1dd, "kimage_voffset" },
+	{ 0xccf30285, "remap_pfn_range" },
+	{ 0x9688de8b, "memstart_addr" },
 	{ 0x4b0a3f52, "gic_nonsecure_priorities" },
 	{ 0x92997ed8, "_printk" },
 	{ 0x1fdc7df2, "_mcount" },
