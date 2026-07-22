@@ -1,17 +1,13 @@
-#include "RingBuffer.h"
 #include <csignal>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include "orin_thermal_ioctl.h"
+#include "RingBuffer.h"
 
 enum class ThermalState {NORMAL, WARM, HOT, CRITICAL};
-thread_local std::mt19937 rng(std::random_device{}());
-std::uniform_int_distribution<int> dist(0, 255);
 
 std::atomic<bool>* g_running_ptr = nullptr;
-
-
-int rng_range(int min_val, int max_val) {
-    std::uniform_int_distribution<int> dist(min_val, max_val);
-    return dist(rng);
-}
 
 ThermalState getState(float temp, std::atomic<ThermalState>& current){
     
@@ -19,28 +15,28 @@ ThermalState getState(float temp, std::atomic<ThermalState>& current){
 
     switch(val){
         case ThermalState::NORMAL:
-            if(temp >= 72){
+            if(temp >= 45){
                 val = ThermalState::WARM;
             }
             break;
         case ThermalState::WARM:
-            if(temp >= 82){
+            if(temp >= 50){
                 val = ThermalState::HOT;
             }
-            else if(temp < 68){
+            else if(temp < 43){
                 val = ThermalState::NORMAL;
             }
             break;
         case ThermalState::HOT:
-            if(temp >= 91){
+            if(temp >= 55){
                 val = ThermalState::CRITICAL;
             }
-            else if(temp < 79){
+            else if(temp < 48){
                 val = ThermalState::WARM;
             }
             break;
         case ThermalState::CRITICAL:
-            if(temp < 89){
+            if(temp < 53){
                 val = ThermalState::HOT;
             }
             break;
@@ -57,7 +53,7 @@ void producer_thread(RingBuffer& buffer, std::atomic<ThermalState>& current_stat
     while(running.load()){
         DummyFrame frame;
         frame.frame_id = current_id;
-        frame.data[current_id % 1024] = dist(rng);
+        frame.data[current_id % 1024] = 0;
         frame.time_stamp = std::chrono::steady_clock::now();
 
         if (!buffer.push(frame)) {
@@ -85,7 +81,7 @@ void producer_thread(RingBuffer& buffer, std::atomic<ThermalState>& current_stat
     }
 }
 //gets frames from buffer and runs tensorRT
-void consumer_thread(RingBuffer& buffer, std::atomic<ThermalState>& current_state, std::atomic<bool>& running){
+void consumer_thread(RingBuffer& buffer, std::atomic<ThermalState>& current_state, std::atomic<bool>& running,std::atomic<float>& temperature){
     while(running.load()){
         DummyFrame frame = buffer.pop(running);
 
@@ -93,7 +89,7 @@ void consumer_thread(RingBuffer& buffer, std::atomic<ThermalState>& current_stat
         auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(now - frame.time_stamp).count();
 
         std::cout << "[Consumer] Processed Frame " << frame.frame_id 
-                  << " | Queue Latency: " << latency << " ms\n";
+                  << " | Queue Latency: " << latency << " ms | Temperature: " <<  temperature.load() << "\n";
 
         ThermalState state = current_state.load();
         
@@ -114,21 +110,28 @@ void consumer_thread(RingBuffer& buffer, std::atomic<ThermalState>& current_stat
 
 //checks the cpu temp 
 void governor_thread(std::atomic<float>& temperature, std::atomic<ThermalState>& current_state, std::atomic<bool>& running){
+    int fd = open("/dev/JETSON", O_RDWR);
+    if (fd < 0) {
+        perror("governor: failed to open /dev/JETSON");
+        return;
+    }
+
     while(running.load()){
+        struct thermal_telemetry gpu_data;
+        //if success
+        if (ioctl(fd, JETSON_THERMAL_GPU_READ, &gpu_data) == 0) {
+            temperature.store(static_cast<float>(gpu_data.temperature));
+        }
+        else{
+            perror("governor: ioctl failed");
+        }
+
         ThermalState next_state = getState(temperature.load(),current_state);
         current_state.store(next_state);
 
-        int drift;
-        switch (next_state) {
-            case ThermalState::NORMAL:   drift = rng_range(-2, 6);  break; 
-            case ThermalState::WARM:     drift = rng_range(-3, 4);  break;
-            case ThermalState::HOT:      drift = rng_range(-5, 2);  break;
-            case ThermalState::CRITICAL: drift = rng_range(-8, -1); break; 
-        }
-        float new_temp = drift + temperature.load();
-        temperature.store(new_temp);
         std::this_thread::sleep_for(std::chrono::milliseconds(500)); 
     }
+    close(fd);
 }
 
 //for ctrl C shutdown
@@ -148,7 +151,7 @@ int main(){
     std::signal(SIGINT, signalHandler);
 
     std::thread producer(producer_thread, std::ref(ring_buffer), std::ref(currentState), std::ref(running), std::ref(droppedFrames));
-    std::thread consumer(consumer_thread, std::ref(ring_buffer), std::ref(currentState), std::ref(running));
+    std::thread consumer(consumer_thread, std::ref(ring_buffer), std::ref(currentState), std::ref(running), std::ref(temperature));
     std::thread governor(governor_thread, std::ref(temperature), std::ref(currentState), std::ref(running));
 
     while (running.load()) {

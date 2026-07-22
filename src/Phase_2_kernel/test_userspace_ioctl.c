@@ -11,14 +11,24 @@ int main() {
         return 1;
     }
 
-    // Test READ
+    
     struct thermal_telemetry data;
-    if (ioctl(fd, JETSON_THERMAL_READ, &data) < 0) {
+
+    // Test READ for GPU
+    if (ioctl(fd, JETSON_THERMAL_GPU_READ, &data) < 0) {
         perror("ioctl READ");
         close(fd);
         return 1;
     }
-    printf("Temperature: %d, FSM State: %d\n", data.temperature, data.fsm_state);
+    printf("GPU: Temperature: %d, FSM State: %d\n", data.temperature, data.fsm_state);
+
+    // Test READ for CPU
+    if (ioctl(fd, JETSON_THERMAL_CPU_READ, &data) < 0) {
+        perror("ioctl READ");
+        close(fd);
+        return 1;
+    }
+    printf("CPU: Temperature: %d, FSM State: %d\n", data.temperature, data.fsm_state);
 
     // Test WRITE
     int new_value = 99;

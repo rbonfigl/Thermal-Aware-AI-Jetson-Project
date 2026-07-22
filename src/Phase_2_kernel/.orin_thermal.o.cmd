@@ -1005,6 +1005,21 @@ deps_/home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/orin_therm
     $(wildcard include/config/CLANG_VERSION) \
   include/linux/miscdevice.h \
   include/uapi/linux/major.h \
+  include/linux/thermal.h \
+    $(wildcard include/config/THERMAL_EMULATION) \
+    $(wildcard include/config/THERMAL_OF) \
+    $(wildcard include/config/THERMAL) \
+  include/linux/of.h \
+    $(wildcard include/config/OF_DYNAMIC) \
+    $(wildcard include/config/SPARC) \
+    $(wildcard include/config/OF_PROMTREE) \
+    $(wildcard include/config/OF_KOBJ) \
+    $(wildcard include/config/OF_NUMA) \
+    $(wildcard include/config/OF_OVERLAY) \
+  include/linux/mod_devicetable.h \
+  include/linux/property.h \
+  include/linux/fwnode.h \
+  include/uapi/linux/thermal.h \
   arch/arm64/include/asm/io.h \
   arch/arm64/include/generated/asm/early_ioremap.h \
   include/asm-generic/early_ioremap.h \
@@ -1020,7 +1035,6 @@ deps_/home/roman_b/Thermal-Aware-AI-Jetson-Project/src/Phase_2_kernel/orin_therm
     $(wildcard include/config/GENERIC_PCI_IOMAP) \
   include/linux/logic_pio.h \
     $(wildcard include/config/INDIRECT_PIO) \
-  include/linux/fwnode.h \
   include/linux/vmalloc.h \
     $(wildcard include/config/HAVE_ARCH_HUGE_VMALLOC) \
   arch/arm64/include/asm/vmalloc.h \

@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/thermal.h>
 #include <asm/io.h>
 #include <asm/page.h>
 #include "orin_thermal_ioctl.h"
@@ -20,10 +21,11 @@ MODULE_AUTHOR("Roman");
 MODULE_DESCRIPTION("Phase 2: Orin Thermal Governor Character Device Skeleton");
 
 static struct cdev jetson_thermal_cdev;
-static char device_buffer[] = "42\n";
 static dev_t dev_num;
 static struct device *jetson_thermal_device;
 static struct class *jetson_thermal_class;
+static struct thermal_zone_device *gpu_tz;
+static struct thermal_zone_device *cpu_tz;
 static unsigned long thermal_dma_buf; //holds kernel virtual address
 
 static int jetson_thermal_open(struct inode *inode, struct file *filp);
@@ -35,7 +37,6 @@ static int my_mmap(struct file *filep, struct vm_area_struct *vma);
 static struct file_operations fops = {
     .owner   = THIS_MODULE,
     .open    = jetson_thermal_open,
-    .read    = jetson_thermal_read,
     .release = jetson_thermal_release,
     .unlocked_ioctl = jetson_thermal_ioctl,
     .mmap = my_mmap,
@@ -93,6 +94,28 @@ static int __init  jetson_thermal_init(void) {
         return -ENOMEM;
     }
 
+    gpu_tz = thermal_zone_get_zone_by_name("gpu-thermal");
+    if (IS_ERR(gpu_tz)) {
+        pr_err("%s: Could not find gpu-thermal zone\n", DRIVER_NAME);
+        device_destroy(jetson_thermal_class, dev_num);
+        class_destroy(jetson_thermal_class);
+        cdev_del(&jetson_thermal_cdev);
+        unregister_chrdev_region(dev_num, MINOR_COUNT);
+        free_page(thermal_dma_buf);
+        return PTR_ERR(gpu_tz);
+    }
+
+    cpu_tz = thermal_zone_get_zone_by_name("cpu-thermal");
+    if (IS_ERR(cpu_tz)) {
+        pr_err("%s: Could not find cpu-thermal zone\n", DRIVER_NAME);
+        device_destroy(jetson_thermal_class, dev_num);
+        class_destroy(jetson_thermal_class);
+        cdev_del(&jetson_thermal_cdev);
+        unregister_chrdev_region(dev_num, MINOR_COUNT);
+        free_page(thermal_dma_buf);
+        return PTR_ERR(cpu_tz);
+    }
+
     mmap_data = (struct thermal_telemetry *)thermal_dma_buf;
     mmap_data->temperature = 42;
     mmap_data->fsm_state = 0;
@@ -114,27 +137,6 @@ static int jetson_thermal_open(struct inode *inode, struct file *filp){
     return 0;
 }
 
-ssize_t jetson_thermal_read(struct file *filep, char __user *buf, size_t len, loff_t *f_pos){
-    size_t error_count = 0;
-
-    if(*f_pos >= sizeof(device_buffer)){ //if we are at or past end of file
-        return 0;
-    }
-    if(len > sizeof(device_buffer)- *f_pos){ //length of message is greater then what we have left
-        len = sizeof(device_buffer)-*f_pos;
-    }
-
-    error_count = copy_to_user(buf, device_buffer + *f_pos, len);
-
-    if(error_count == 0){
-        *f_pos += len;
-        return len; //number of bytes read by userspace
-    }
-    else{
-        pr_err("%s: Failed to read\n", DRIVER_NAME);
-        return -EFAULT;
-    }
-}
 static int jetson_thermal_release(struct inode *inodep, struct file *filep){
     pr_info("%s: Device successfully closed\n", DRIVER_NAME);
     return 0;
@@ -154,14 +156,44 @@ static long jetson_thermal_ioctl(struct file *file, unsigned int cmd, unsigned l
                 return -EFAULT;
             }
             break;
-        case JETSON_THERMAL_READ:
-            data.temperature = 42;
-            data.fsm_state = 0;
-            if(copy_to_user((struct thermal_telemetry __user *) arg, &data, sizeof(data))){
-                pr_err("%s Data read error\n", DRIVER_NAME);
-                return -EFAULT;
-            }
-            break;
+        case JETSON_THERMAL_GPU_READ:{
+                int temp_millidegrees;
+                int ret;
+
+                ret = thermal_zone_get_temp(gpu_tz, &temp_millidegrees);
+                if (ret) {
+                    pr_err("%s: Failed to read GPU temperature\n", DRIVER_NAME);
+                    return ret;
+                }
+
+                data.temperature = temp_millidegrees/1000;
+                data.fsm_state = 0;
+
+                if(copy_to_user((struct thermal_telemetry __user *) arg, &data, sizeof(data))){
+                    pr_err("%s Data read error\n", DRIVER_NAME);
+                    return -EFAULT;
+                }
+                break;
+        }
+        case JETSON_THERMAL_CPU_READ:{
+                int temp_millidegrees;
+                int ret;
+
+                ret = thermal_zone_get_temp(cpu_tz, &temp_millidegrees);
+                if (ret) {
+                    pr_err("%s: Failed to read CPU temperature\n", DRIVER_NAME);
+                    return ret;
+                }
+
+                data.temperature = temp_millidegrees;
+                data.fsm_state = 0;
+
+                if(copy_to_user((struct thermal_telemetry __user *) arg, &data, sizeof(data))){
+                    pr_err("%s Data read error\n", DRIVER_NAME);
+                    return -EFAULT;
+                }
+                break;
+        }
         default:
             return -ENOTTY;
     }
