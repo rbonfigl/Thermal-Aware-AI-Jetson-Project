@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "RingBuffer.h"
 
 //reset the pointers and count
@@ -24,7 +25,6 @@ bool RingBuffer::push(const DummyFrame& frame){
     if(full()){
         return false;
     }
-
     buffer[head] = frame;
     current_count++;
     head = (head + 1) % capacity_max;

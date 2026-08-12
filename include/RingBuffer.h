@@ -8,12 +8,13 @@
 #include <random>
 #include <thread>
 #include <atomic>
+#include <opencv2/opencv.hpp>
 
 using time_point = std::chrono::steady_clock::time_point;
 
 struct DummyFrame{
     int frame_id;
-    std::array<uint8_t, 1024> data;
+    cv::Mat data;
     time_point time_stamp;
 };
 
@@ -30,7 +31,7 @@ class RingBuffer{
         std::condition_variable cv_not_empty;
 
     public:
-        RingBuffer(size_t size) : capacity_max(size), buffer(size),head(0),tail(0){}
+        RingBuffer(size_t size) : capacity_max(size), buffer(size),head(0),tail(0),current_count(0){}
         void reset();
         bool full() const { return current_count == capacity_max; };
         bool empty() const { return current_count == 0; };

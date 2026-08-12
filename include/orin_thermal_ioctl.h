@@ -12,6 +12,7 @@ struct thermal_telemetry{
 
 #define JETSON_THERMAL_RESET _IO(JETSON_THERMAL_MAGIC, 80)
 #define JETSON_THERMAL_WRITE _IOW(JETSON_THERMAL_MAGIC,81,int)
-#define JETSON_THERMAL_READ _IOR(JETSON_THERMAL_MAGIC,82, struct thermal_telemetry)
+#define JETSON_THERMAL_GPU_READ _IOR(JETSON_THERMAL_MAGIC,82, struct thermal_telemetry)
+#define JETSON_THERMAL_CPU_READ _IOR(JETSON_THERMAL_MAGIC,83, struct thermal_telemetry)
 
 #endif
