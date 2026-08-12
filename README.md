@@ -24,9 +24,6 @@ It has three main stages
 - Governor thread runs a thermal FSM (NORMAL/WARM/HOT/CRITICAL) with hysteresis
 - Fixed-size ring buffer connects them with a drop-on-full backpressure policy
 
-### Diagram
--TO DO
-
 ### Key design decisions
 - **Drop-incoming vs overwrite-oldest**: chose drop-incoming so frame ordering 
   is preserved and backpressure produces an explicit, countable metric 
@@ -91,10 +88,16 @@ include/    - headers
 - Validated end-to-end with a standalone user-space test program: confirmed the
   mapped memory reflects driver-written values, and that repeated reads after the
   initial `mmap()` call trigger no further kernel code execution
-- Currently demonstrated as a standalone mechanism rather than wired into the live
-  pipeline — doing so meaningfully would require a kernel-side periodic updater
-  (timer/workqueue) to keep the mapped buffer fresh, which introduces real
-  concurrent-access requirements (see Concurrency Considerations below).
-  Deprioritized given the project timeline; documented here as an architectural
-  decision rather than an oversight.
-## Phase 3: Full Integration (Planned)
+
+### Validation
+- Character device load/unload cycle confirmed clean via `dmesg`, with
+  `/dev/JETSON` correctly appearing and disappearing on `insmod`/`rmmod`
+- ioctl GPU/CPU reads validated against a standalone user-space test program,
+  confirming live, changing values across repeated calls (not a cached or
+  hardcoded result)
+- mmap validated against a standalone user-space test program using `mmap()`
+  and `munmap()`, confirming correct zero-copy access to driver-written data
+- Full pipeline integration validated by wiring real ioctl-sourced GPU
+  temperature into the Phase 1 governor thread, replacing the simulated
+  temperature model and driving the same FSM logic against live hardware data
+## Phase 3: Full Integration (Completed need to update readme)
