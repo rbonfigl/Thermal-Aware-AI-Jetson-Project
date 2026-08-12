@@ -83,8 +83,7 @@ include/    - headers
   telemetry through a plain pointer dereference with no syscall per access
 - Chosen over `vmalloc` specifically because the telemetry struct is small enough
   to fit in a single page, and `remap_pfn_range` requires physically contiguous
-  memory — `vmalloc`'s scattered-page allocation would require a more complex
-  page-by-page mapping strategy for no benefit at this data size
+  memory
 - Validated end-to-end with a standalone user-space test program: confirmed the
   mapped memory reflects driver-written values, and that repeated reads after the
   initial `mmap()` call trigger no further kernel code execution
