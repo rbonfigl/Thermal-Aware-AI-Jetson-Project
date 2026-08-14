@@ -5,15 +5,56 @@
 -Roman Bonfiglio
 
 ## Overview
-This project implements a thermal-aware, concurrent AI inference pipeline designed for the NVIDIA Jetson Orin Nano. Running a sustained 
-workload that must balance camera throughput against thermal limits — this system senses SoC thermal state directly from the Linux kernel and 
-dynamically adjusts pipeline behavior in response. 
+This project implements a thermal-aware, concurrent AI inference pipeline designed for the NVIDIA Jetson Orin Nano. This system runs a sustained AI inference workload while balancing camera throughput against thermal limits. It senses SoC thermal state directly from the Linux kernel and dynamically adjusts pipeline behavior in response.
+
+## Technologies
+
+- **Languages:** C++, C
+- **OS:** Embedded Linux
+- **Hardware:** NVIDIA Jetson Orin Nano
+- **AI:** TensorRT, CUDA, YOLOv8n
+- **Camera:** OpenCV, V4L2
+- **Kernel:** Linux Kernel Modules, Thermal Framework, Character Devices
+- **Interfaces:** `ioctl`, `mmap`
+- **Concurrency:** POSIX threads, custom ring buffer
+- **Debugging:** GDB, ThreadSanitizer, AddressSanitizer, Valgrind
 
 It has three main stages
 
 1. **User-space concurrency engine** — a multi-threaded C++ producer/consumer/governor pipeline with a custom ring buffer and drop-based backpressure policy
 2. **Kernel-space thermal bridge** — a custom Linux character device driver that reads real thermal zone data from the kernel and exposes it to user space
-3. **Full integration** — real GStreamer camera input and TensorRT inference tied to the kernel-driven thermal governor
+3. **Full integration** — real V4L2 camera input and TensorRT inference tied to the kernel-driven thermal governor
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+    'primaryColor':'#ffffff',
+    'primaryTextColor':'#111111',
+    'primaryBorderColor':'#333333',
+    'lineColor':'#555555',
+    'secondaryColor':'#ffffff',
+    'tertiaryColor':'#ffffff',
+    'fontSize':'18px'
+}}}%%
+
+flowchart LR
+    A["Camera<br/>OpenCV / V4L2"] -->|Frames| B["Ring Buffer<br/>Drop-on-Full"]
+    B -->|Pop| C["TensorRT<br/>YOLOv8n Inference"]
+    C -->|Detections + Latency| F["Console / Results"]
+
+    D["Kernel Driver<br/>orin_thermal.ko"] -->|ioctl: GPU / CPU °C| E["Governor Thread<br/>Thermal FSM"]
+    E -->|Thermal State| A
+    E -->|Thermal State| C
+
+    style A fill:#ffffff,stroke:#333333,stroke-width:2px
+    style B fill:#ffffff,stroke:#333333,stroke-width:2px
+    style C fill:#ffffff,stroke:#333333,stroke-width:2px
+    style D fill:#ffffff,stroke:#333333,stroke-width:2px
+    style E fill:#ffffff,stroke:#333333,stroke-width:2px
+    style F fill:#ffffff,stroke:#333333,stroke-width:2px
+
+    linkStyle default stroke:#555555,stroke-width:2px
+```
+ 
 
 
 ## Phase 1: User-Space Concurrency Engine (Complete)
@@ -35,11 +76,6 @@ It has three main stages
 - Verified with ThreadSanitizer (clean across multiple runs, varied durations)
 - Verified with AddressSanitizer (clean)
 - Verified with Valgrind (no memory leaks)
-
-
-## Build & Run
-g++ -std=c++17 -pthread src/main.cpp src/RingBuffer.cpp -Iinclude -o thermal_sim
-./thermal_sim
 
 
 ## Repository Structure
@@ -83,7 +119,7 @@ include/    - headers
   telemetry through a plain pointer dereference with no syscall per access
 - Chosen over `vmalloc` specifically because the telemetry struct is small enough
   to fit in a single page, and `remap_pfn_range` requires physically contiguous
-  memory
+  memory 
 - Validated end-to-end with a standalone user-space test program: confirmed the
   mapped memory reflects driver-written values, and that repeated reads after the
   initial `mmap()` call trigger no further kernel code execution
@@ -99,4 +135,36 @@ include/    - headers
 - Full pipeline integration validated by wiring real ioctl-sourced GPU
   temperature into the Phase 1 governor thread, replacing the simulated
   temperature model and driving the same FSM logic against live hardware data
-## Phase 3: Full Integration (Completed need to update readme)
+
+## Phase 3: Full Integration (Complete)
+Real camera frames flow through the ring buffer into actual TensorRT object detection, with the kernel-sourced thermal governor throttling both based on live GPU/CPU temperature — the full loop from real hardware sensing to real AI inference, running end to end.
+ 
+- Real camera capture (OpenCV, V4L2 backend, MJPG @ 640x480/30fps) replaces Phase 1's synthetic frames
+- **V4L2 over GStreamer:** the installed OpenCV build lacked GStreamer support; V4L2 direct capture was simpler and lower-overhead for a single-camera pipeline than rebuilding OpenCV from source
+- Frames are explicitly deep-copied (`cv::Mat::clone()`) before entering the ring buffer, rather than relying on shallow reference-counted copies that could alias camera-driver-owned memory
+- TensorRT engine and GPU buffers loaded/allocated once at startup, reused per frame; dedicated CUDA stream avoids default-stream synchronization overhead
+- Consumer sleep redesigned: NORMAL/WARM throughput now governed by real inference cost alone; deliberate additional sleep retained only in HOT/CRITICAL as genuine protective throttling
+### Debugging Highlight
+Frame IDs intermittently appeared out of sequence with no corresponding drops recorded. Ruled out, in order: multiple running instances, V4L2-level frame reordering, and `cv::Mat` buffer aliasing. Root cause, found via direct `push()`/`pop()` instrumentation rather than inferring from interleaved console output: an **uninitialized `current_count` member** in the `RingBuffer` constructor — present since Phase 1, masked by coincidentally zero-valued memory in smaller test programs, only surfacing once TensorRT/CUDA/OpenCV's larger memory footprint made the garbage value non-zero.
+ 
+### Validation
+- Live camera feed and real detections (bounding boxes) confirmed visually
+- Frame sequencing verified gapless/monotonic post-fix via ring buffer instrumentation
+- Thermal-load tested with the fan disabled to observe genuine sustained-load behavior, cross-checked against `tegrastats`
+## Build & Run
+```bash
+g++ -std=c++17 -pthread main.cpp RingBuffer.cpp -I../../include \
+    -I/usr/include/opencv4 -I/usr/include/aarch64-linux-gnu -I/usr/local/cuda-12.6/include \
+    -L/usr/lib -L/usr/lib/aarch64-linux-gnu -L/usr/local/cuda-12.6/lib64 \
+    -lopencv_videoio -lopencv_imgproc -lopencv_core -lopencv_dnn \
+    -lnvinfer -lcudart \
+    -o thermal_pipeline
+ 
+sudo insmod ../Phase_2_kernel/orin_thermal.ko   # kernel module must be loaded first
+sudo ./thermal_pipeline                          # sudo required for /dev/JETSON access
+```
+```
+g++ -std=c++17 -pthread src/main.cpp src/RingBuffer.cpp -Iinclude -o thermal_sim
+./thermal_sim
+```
+ 
